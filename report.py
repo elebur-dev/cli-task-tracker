@@ -4,45 +4,46 @@
 #     "prettytable",
 # ]
 # ///
-import json
-import sys
 import argparse
 import datetime
+import json
+import sys
 from pathlib import Path
 
 from prettytable import PrettyTable
 
 
 BASE_DIR = Path(__file__).resolve().parent
+REPORTS_DIR = BASE_DIR / "reports"
 
 
 def configure_argparse() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-                        prog="Tasks logger.",
-                        description="A simple CLI for recording daily tasks.",
+        prog="report.py",
+        description="A simple CLI for recording daily tasks.",
     )
 
     group = parser.add_mutually_exclusive_group()
 
-    group.add_argument('-s', '--start', help="Short description of the task.")
-    group.add_argument('-f', '--finish', action='store_true')
+    group.add_argument("-s", "--start", help="Short description of the task.")
+    group.add_argument(
+        "-f", "--finish", action="store_true", help="Finish the active task.")
 
     parser.add_argument("--summary", action="store_true", help="Show all today's tasks")
 
     return parser
 
 
-def main():
+def main() -> int:
     parser = configure_argparse()
-
-    if not sys.argv == 1:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
-
     args = parser.parse_args()
-    reports_dir = BASE_DIR / "reports"
-    reports_dir.mkdir(exist_ok=True)
-    filepath = reports_dir / f"{today()}.json"
+
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        return 1
+
+    REPORTS_DIR.mkdir(exist_ok=True)
+    filepath = report_filepath()
 
     if args.start is not None:
         add_entry(filepath, args.start)
@@ -52,17 +53,23 @@ def main():
     if args.summary:
         print_summary(filepath)
 
+    return 0
 
-def add_entry(filepath, text: str) -> None:
-    if not filepath.exists():
-        write_json(filepath, [])
 
+def report_filepath(now: datetime.datetime | None = None) -> Path:
+    return REPORTS_DIR / f"{today(now)}.json"
+
+
+def add_entry(filepath: Path, text: str) -> None:
     log = read_json(filepath)
 
     if log:
         last_record = log[-1]
         if not last_record.get("finish"):
-            print(f"ERROR: You haven't finished the previous task yet: '{last_record["text"]}'")
+            print(
+                f"ERROR: You haven't finished the previous task yet: "
+                f"'{last_record['text']}'"
+            )
             return
 
     log.append({
@@ -75,30 +82,35 @@ def add_entry(filepath, text: str) -> None:
     print(f"Successfully added a new record: '{text}'")
 
 
-def today():
-    return datetime.datetime.now().strftime("%d-%m-%Y")
+def today(now: datetime.datetime | None = None) -> str:
+    current = now or datetime.datetime.now()
+    return current.strftime("%d-%m-%Y")
 
 
-def time_now():
-    return datetime.datetime.now().strftime("%H:%M")
+def time_now(now: datetime.datetime | None = None) -> str:
+    current = now or datetime.datetime.now()
+    return current.strftime("%H:%M")
 
 
 def read_json(filepath: Path) -> list[dict]:
-    with open(filepath, "r") as fin:
+    if not filepath.exists():
+        return []
+
+    with filepath.open("r", encoding="utf-8") as fin:
         obj = json.load(fin)
+
+    if not isinstance(obj, list):
+        raise ValueError(f"Expected a list of task records in {filepath!s}")
 
     return obj
 
 
 def write_json(filepath: Path, obj: object) -> None:
-    with open(filepath, "w") as fout:
+    with filepath.open("w", encoding="utf-8") as fout:
         json.dump(obj, fout, ensure_ascii=False, indent=2)
 
 
-def finish_last_entry(filepath: Path):
-    if not filepath.exists():
-        raise FileNotFoundError(filepath)
-
+def finish_last_entry(filepath: Path) -> None:
     log = read_json(filepath)
     if not log:
         print(f"ERROR: there are no records in the file {filepath} yet.")
@@ -121,12 +133,9 @@ def finish_last_entry(filepath: Path):
 
 
 def print_summary(filepath: Path) -> None:
-    if not filepath.exists():
-        raise FileNotFoundError(filepath)
-
     log = read_json(filepath)
     if not log:
-        print(f"The log file {filepath!s} is empty")
+        print("No tasks recorded for today yet.")
         return
 
     table = PrettyTable(["Start", "End", "Task"])
@@ -134,11 +143,13 @@ def print_summary(filepath: Path) -> None:
 
     for record in log:
         table.add_row([
-            record["start"], record["finish"], record["text"]
+            str(record.get("start", "")),
+            str(record.get("finish") or "-"),
+            str(record.get("text", "")),
         ])
 
     print(table)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
