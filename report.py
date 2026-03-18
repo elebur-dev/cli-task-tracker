@@ -29,21 +29,19 @@ def configure_argparse() -> argparse.ArgumentParser:
     group.add_argument(
         "-f", "--finish", action="store_true", help="Finish the active task.")
 
-    parser.add_argument("--summary", action="store_true", help="Show all today's tasks")
-
     return parser
 
 
 def main() -> int:
+    REPORTS_DIR.mkdir(exist_ok=True)
+    filepath = report_filepath()
+
     parser = configure_argparse()
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
-        return 1
-
-    REPORTS_DIR.mkdir(exist_ok=True)
-    filepath = report_filepath()
+        print_summary(filepath)
+        return 0
 
     if args.start is not None:
         add_entry(filepath, args.start)
