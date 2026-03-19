@@ -48,9 +48,6 @@ def main() -> int:
     elif args.finish:
         finish_last_entry(filepath)
 
-    if args.summary:
-        print_summary(filepath)
-
     return 0
 
 
