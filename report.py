@@ -149,6 +149,7 @@ def print_summary(report_folder: Path, date_str: str) -> None:
         return
 
     table = PrettyTable(["Start", "End", "Task"])
+    table.title = f"Task for {formatted_date}"
     table.align["Task"] = "l"
 
     for record in log:
