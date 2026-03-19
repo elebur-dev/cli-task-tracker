@@ -14,6 +14,7 @@ from prettytable import PrettyTable
 
 
 DATE_FORMAT = "%d-%m-%Y"
+TIME_FORMAT = "%H:%M"
 BASE_DIR = Path(__file__).resolve().parent
 REPORTS_DIR = BASE_DIR / "reports"
 
@@ -148,14 +149,30 @@ def print_summary(report_folder: Path, date_str: str) -> None:
         print(f"No tasks recorded for {formatted_date}.")
         return
 
-    table = PrettyTable(["Start", "End", "Task"])
+    table = PrettyTable(["Start", "End", "Duration", "Task"])
     table.title = f"Task for {formatted_date}"
     table.align["Task"] = "l"
+    table.max_width["Task"] = 40
 
     for record in log:
+        start_dt_obj = parse_time(record.get("start", ""))
+        end_dt_obj = parse_time(record.get("finish", ""))
+
+        # If the task cross the midnight. E.e. start at 23:33, and end at 00:20.
+        if start_dt_obj and end_dt_obj and start_dt_obj > end_dt_obj:
+            end_dt_obj += datetime.timedelta(days=1)
+
+        if start_dt_obj and end_dt_obj:
+            duration = end_dt_obj - start_dt_obj
+            # Remove redundant seconds.
+            duration = str(duration).removesuffix(":00")
+        else:
+            duration = "-"
+
         table.add_row([
-            str(record.get("start", "")),
-            str(record.get("finish") or "-"),
+            start_dt_obj.strftime(TIME_FORMAT) if start_dt_obj else "",
+            end_dt_obj.strftime(TIME_FORMAT) if end_dt_obj else "-",
+            duration,
             str(record.get("text", "")),
         ])
 
@@ -178,6 +195,13 @@ def parse_date(date_str: str) -> datetime.datetime | None:
         )
 
     return date
+
+
+def parse_time(time_str: str) -> datetime.datetime | None:
+    if not time_str:
+        return
+
+    return datetime.datetime.strptime(time_str, TIME_FORMAT)
 
 
 if __name__ == "__main__":
