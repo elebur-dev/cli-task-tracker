@@ -13,6 +13,7 @@ from pathlib import Path
 from prettytable import PrettyTable
 
 
+DATE_FORMAT = "%d-%m-%Y"
 BASE_DIR = Path(__file__).resolve().parent
 REPORTS_DIR = BASE_DIR / "reports"
 
@@ -28,6 +29,15 @@ def configure_argparse() -> argparse.ArgumentParser:
     group.add_argument("-s", "--start", help="Short description of the task.")
     group.add_argument(
         "-f", "--finish", action="store_true", help="Finish the active task.")
+    date_help_msg = (
+        "A date to show report for.\n"
+        "Format: \n"
+        "    1) DD-MM-YYYY - exact date to show report for.\n"
+        "    2) a single digit - number of days in the past to show report for\n"
+        "       (e.g. '0' - today, '1' - show report for yesterday, "
+        "        '2' - two days ago and so on)."
+    )
+    parser.add_argument("-d", "--date", help=date_help_msg)
 
     return parser
 
@@ -40,13 +50,15 @@ def main() -> int:
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
-        print_summary(filepath)
+        print_summary(REPORTS_DIR, "0")
         return 0
 
     if args.start is not None:
         add_entry(filepath, args.start)
     elif args.finish:
         finish_last_entry(filepath)
+    elif args.date:
+        print_summary(REPORTS_DIR, args.date)
 
     return 0
 
@@ -79,7 +91,7 @@ def add_entry(filepath: Path, text: str) -> None:
 
 def today(now: datetime.datetime | None = None) -> str:
     current = now or datetime.datetime.now()
-    return current.strftime("%d-%m-%Y")
+    return current.strftime(DATE_FORMAT)
 
 
 def time_now(now: datetime.datetime | None = None) -> str:
@@ -127,10 +139,13 @@ def finish_last_entry(filepath: Path) -> None:
     )
 
 
-def print_summary(filepath: Path) -> None:
+def print_summary(report_folder: Path, date_str: str) -> None:
+    date = parse_date(date_str)
+    formatted_date = date.strftime(DATE_FORMAT)
+    filepath = report_folder / f"{formatted_date}.json"
     log = read_json(filepath)
     if not log:
-        print("No tasks recorded for today yet.")
+        print(f"No tasks recorded for {formatted_date}.")
         return
 
     table = PrettyTable(["Start", "End", "Task"])
@@ -144,6 +159,24 @@ def print_summary(filepath: Path) -> None:
         ])
 
     print(table)
+
+
+def parse_date(date_str: str) -> datetime.datetime | None:
+    date = None
+    if date_str.isdigit():
+        timedelta = datetime.timedelta(days=int(date_str))
+        today = datetime.datetime.now()
+        return today - timedelta
+
+    try:
+        date = datetime.datetime.strptime(date_str, DATE_FORMAT)
+    except ValueError:
+        print(
+            "ERROR: wrong date format has been sent. "
+            f"Expected format is DD-MM-YYYY. Received - '{date_str}'"
+        )
+
+    return date
 
 
 if __name__ == "__main__":
