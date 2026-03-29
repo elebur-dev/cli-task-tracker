@@ -2,6 +2,7 @@
 # /// script
 # dependencies = [
 #     "prettytable",
+#     "reportlab",
 # ]
 # ///
 import argparse
@@ -11,6 +12,16 @@ import sys
 from pathlib import Path
 
 from prettytable import PrettyTable
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 
 DATE_FORMAT = "%d-%m-%Y"
@@ -40,6 +51,18 @@ def configure_argparse() -> argparse.ArgumentParser:
     )
     parser.add_argument("-d", "--date", help=date_help_msg)
 
+    subparsers = parser.add_subparsers(dest="command")
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export all report files to one PDF.",
+    )
+    export_parser.add_argument(
+        "output",
+        nargs="?",
+        default=str(BASE_DIR / "reports_export.pdf"),
+        help="Output PDF path. Default: reports_export.pdf in project root.",
+    )
+
     return parser
 
 
@@ -54,7 +77,9 @@ def main() -> int:
         print_summary(REPORTS_DIR, "0")
         return 0
 
-    if args.start is not None:
+    if args.command == "export":
+        export_reports_to_pdf(REPORTS_DIR, Path(args.output))
+    elif args.start is not None:
         add_entry(filepath, args.start)
     elif args.finish:
         finish_last_entry(filepath)
@@ -202,6 +227,96 @@ def parse_time(time_str: str) -> datetime.datetime | None:
         return
 
     return datetime.datetime.strptime(time_str, TIME_FORMAT)
+
+
+def export_reports_to_pdf(report_folder: Path, output_path: Path) -> None:
+    report_files = sorted_report_files(report_folder)
+    if not report_files:
+        print("No report files found to export.")
+        return
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    doc = SimpleDocTemplate(
+        str(output_path),
+        pagesize=A4,
+    )
+    styles = getSampleStyleSheet()
+    elements: list[object] = []
+
+    for date_obj, filepath in report_files:
+        table_data: list[list[object]] = [["Start", "End", "Task"]]
+        log = read_json(filepath)
+
+        for record in sorted(log, key=record_start_sort_key):
+            table_data.append([
+                str(record.get("start", "")).strip() or "-",
+                str(record.get("finish", "")).strip() or "-",
+                str(record.get("text", "")).strip() or "-",
+            ])
+
+        if len(table_data) == 1:
+            table_data.append(["-", "-", "No tasks recorded."])
+
+        table = Table(
+            table_data,
+            colWidths=[80, 80, doc.width - 160],
+            repeatRows=1,
+        )
+        table.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF1F7")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#22303C")),
+                ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#CBD7E4")),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.HexColor("#FFFFFF"), colors.HexColor("#F7FAFC")],
+                ),
+                ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#2E3A44")),
+                ("ALIGN", (0, 0), (1, -1), "CENTER"),
+                ("ALIGN", (2, 0), (2, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D5DEE8")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ])
+        )
+
+        elements.extend([
+            Paragraph(date_obj.strftime(DATE_FORMAT), styles["Heading2"]),
+            Spacer(1, 6),
+            table,
+            Spacer(1, 12),
+        ])
+
+    doc.build(elements)
+    print(f"Successfully exported {len(report_files)} report(s) to {output_path}.")
+
+
+def sorted_report_files(report_folder: Path) -> list[tuple[datetime.datetime, Path]]:
+    sortable_files: list[tuple[datetime.datetime, Path]] = []
+    for filepath in report_folder.glob("*.json"):
+        try:
+            date_obj = datetime.datetime.strptime(filepath.stem, DATE_FORMAT)
+        except ValueError:
+            continue
+        sortable_files.append((date_obj, filepath))
+
+    return sorted(sortable_files, key=lambda item: item[0])
+
+
+def record_start_sort_key(record: dict) -> datetime.datetime:
+    start_time = str(record.get("start", "")).strip()
+    try:
+        parsed_time = parse_time(start_time)
+    except ValueError:
+        parsed_time = None
+    return parsed_time or datetime.datetime.min
 
 
 if __name__ == "__main__":
