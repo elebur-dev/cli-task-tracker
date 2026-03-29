@@ -10,6 +10,7 @@ import datetime
 import json
 import sys
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from prettytable import PrettyTable
 from reportlab.lib import colors
@@ -242,6 +243,11 @@ def export_reports_to_pdf(report_folder: Path, output_path: Path) -> None:
         pagesize=A4,
     )
     styles = getSampleStyleSheet()
+    task_cell_style = styles["BodyText"].clone("TaskCell")
+    task_cell_style.wordWrap = "CJK"
+    task_cell_style.splitLongWords = True
+    task_cell_style.spaceBefore = 0
+    task_cell_style.spaceAfter = 0
     elements: list[object] = []
 
     for date_obj, filepath in report_files:
@@ -249,14 +255,19 @@ def export_reports_to_pdf(report_folder: Path, output_path: Path) -> None:
         log = read_json(filepath)
 
         for record in sorted(log, key=record_start_sort_key):
+            task_text = str(record.get("text", "")).strip() or "-"
             table_data.append([
                 str(record.get("start", "")).strip() or "-",
                 str(record.get("finish", "")).strip() or "-",
-                str(record.get("text", "")).strip() or "-",
+                Paragraph(escape(task_text), task_cell_style),
             ])
 
         if len(table_data) == 1:
-            table_data.append(["-", "-", "No tasks recorded."])
+            table_data.append([
+                "-",
+                "-",
+                Paragraph("No tasks recorded.", task_cell_style),
+            ])
 
         table = Table(
             table_data,

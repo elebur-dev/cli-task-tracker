@@ -13,5 +13,10 @@
     "text": "Final local testing",
     "start": "11:15",
     "finish": "12:05"
+  },
+  {
+    "text": "Prepare a comprehensive end-to-end validation scenario for the PDF export pipeline, including long narrative task details, explicit edge cases, and cross-check notes for readability in narrow table columns. EXTREMELY_LONG_TOKEN_WITHOUT_SPACES_FOR_WRAP_VERIFICATION_ABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890",
+    "start": "12:15",
+    "finish": "13:25"
   }
 ]
