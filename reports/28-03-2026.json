@@ -1,0 +1,17 @@
+[
+  {
+    "text": "Refactor export code",
+    "start": "09:05",
+    "finish": "10:10"
+  },
+  {
+    "text": "Verify PDF table format",
+    "start": "10:20",
+    "finish": "11:00"
+  },
+  {
+    "text": "Final local testing",
+    "start": "11:15",
+    "finish": "12:05"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "text": "Prepare daily report",
+    "start": "08:50",
+    "finish": "09:20"
+  },
+  {
+    "text": "Implement export CLI command",
+    "start": "09:30",
+    "finish": "11:00"
+  },
+  {
+    "text": "Fix minor bugs",
+    "start": "11:10",
+    "finish": "12:00"
+  }
+]
